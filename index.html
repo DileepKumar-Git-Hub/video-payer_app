@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>CineWave – Immersive Streaming</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ─── RESET & BASE ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #070709;
+      --surface:   #0e0e12;
+      --card:      #16161d;
+      --border:    rgba(255,255,255,0.07);
+      --accent:    #e8a020;
+      --accent2:   #e05c2a;
+      --text:      #f0eff4;
+      --muted:     #6e6d7a;
+      --danger:    #e03c5a;
+      --success:   #2ae09a;
+      --font-head: 'Bebas Neue', sans-serif;
+      --font-body: 'DM Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --radius:    14px;
+      --radius-sm: 8px;
+      --shadow:    0 24px 80px rgba(0,0,0,0.7);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-body);
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% 0%, rgba(232,160,32,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 80% 100%, rgba(224,92,42,0.05) 0%, transparent 60%);
+      pointer-events: none; z-index: 0;
+    }
+
+    /* ─── GRAIN OVERLAY ────────────────────────────────────────── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      pointer-events: none; z-index: 1;
+    }
+
+    /* ─── LAYOUT ───────────────────────────────────────────────── */
+    .app { display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 2; }
+
+    /* ─── NAVBAR ───────────────────────────────────────────────── */
+    .navbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 40px;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      background: rgba(7,7,9,0.85);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo {
+      font-family: var(--font-head);
+      font-size: 28px; letter-spacing: 3px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .logo span { -webkit-text-fill-color: var(--text); }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      color: var(--muted); font-size: 14px; font-weight: 500;
+      text-decoration: none; letter-spacing: 0.5px;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover, .nav-links a.active { color: var(--text); }
+    .nav-right { display: flex; gap: 16px; align-items: center; }
+    .btn-nav {
+      padding: 8px 20px; border-radius: 6px; font-family: var(--font-body);
+      font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s;
+      border: 1.5px solid var(--border);
+      background: transparent; color: var(--text);
+    }
+    .btn-nav:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-color: transparent; color: #000;
+    }
+    .btn-primary:hover { opacity: 0.85; color: #000; }
+    .avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; color: #000; cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* ─── MAIN CONTENT ─────────────────────────────────────────── */
+    .main { display: flex; flex: 1; gap: 0; }
+
+    /* ─── VIDEO SECTION ────────────────────────────────────────── */
+    .video-section { flex: 1; padding: 32px 40px; min-width: 0; }
+
+    /* ─── PLAYER WRAPPER ───────────────────────────────────────── */
+    .player-wrapper {
+      position: relative; width: 100%;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: var(--shadow), 0 0 0 1px var(--border);
+      aspect-ratio: 16 / 9;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    video {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* ─── GESTURE ZONES (invisible overlays) ───────────────────── */
+    .gesture-overlay {
+      position: absolute; inset: 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      z-index: 10;
+    }
+    .zone {
+      position: relative;
+      /* No visual appearance – purely functional */
+    }
+
+    /* ─── GESTURE RIPPLE FEEDBACK ──────────────────────────────── */
+    .ripple-container {
+      position: absolute; inset: 0; pointer-events: none;
+      z-index: 20; overflow: hidden;
+    }
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      transform: translate(-50%, -50%) scale(0);
+      animation: ripple-anim 0.6s ease-out forwards;
+      pointer-events: none;
+    }
+    @keyframes ripple-anim {
+      to { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+    }
+
+    /* ─── GESTURE INDICATOR ────────────────────────────────────── */
+    .gesture-indicator {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px;
+      padding: 18px 28px;
+      opacity: 0; pointer-events: none;
+      z-index: 30;
+      transition: opacity 0.15s, transform 0.15s;
+      min-width: 120px; text-align: center;
+    }
+    .gesture-indicator.show {
+      opacity: 1; transform: translate(-50%, -50%) scale(1);
+    }
+    .gesture-indicator .gi-icon { font-size: 32px; line-height: 1; }
+    .gesture-indicator .gi-label {
+      font-family: var(--font-body); font-size: 13px;
+      font-weight: 500; color: rgba(255,255,255,0.85);
+      white-space: nowrap;
+    }
+    .gesture-indicator .gi-value {
+      font-family: var(--font-head); font-size: 22px; letter-spacing: 1px;
+      color: var(--accent);
+    }
+
+    /* Side indicators (rewind / forward) */
+    .side-indicator {
+      position: absolute; top: 50%;
+      transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 14px; padding: 14px 20px;
+      opacity: 0; pointer-events: none; z-index: 30;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .side-indicator.left  { left: 16px;  transform: translateY(-50%) translateX(-8px); }
+    .side-indicator.right { right: 16px; transform: translateY(-50%) translateX(8px); }
+    .side-indicator.show.left  { opacity: 1; transform: translateY(-50%) translateX(0); }
+    .side-indicator.show.right { opacity: 1; transform: translateY(-50%) translateX(0); }
+    .side-indicator .si-icon  { font-size: 28px; }
+    .side-indicator .si-text  { font-size: 12px; color: rgba(255,255,255,0.7); font-weight: 500; }
+    .side-indicator .si-sec   { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
+
+    /* ─── VIDEO CONTROLS BAR ───────────────────────────────────── */
+    .controls-bar {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(0,0,0,0.92));
+      padding: 40px 20px 16px;
+      transform: translateY(0);
+      transition: opacity 0.3s, transform 0.3s;
+      z-index: 25;
+    }
+    .player-wrapper.hide-controls .controls-bar {
+      opacity: 0; transform: translateY(6px); pointer-events: none;
+    }
+
+    /* Progress bar */
+    .progress-wrap {
+      position: relative; height: 4px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px; margin-bottom: 12px;
+      cursor: pointer; transition: height 0.2s;
+    }
+    .progress-wrap:hover { height: 6px; }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px; position: relative; pointer-events: none;
+      transition: width 0.1s linear;
+    }
+    .progress-thumb {
+      position: absolute; right: -6px; top: 50%;
+      transform: translateY(-50%);
+      width: 12px; height: 12px; border-radius: 50%;
+      background: #fff; opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .progress-wrap:hover .progress-thumb { opacity: 1; }
+    .progress-buffered {
+      position: absolute; top: 0; left: 0; height: 100%;
+      background: rgba(255,255,255,0.25); border-radius: 2px;
+      pointer-events: none;
+    }
+
+    /* Controls row */
+    .controls-row { display: flex; align-items: center; gap: 14px; }
+    .ctrl-btn {
+      background: none; border: none; color: #fff;
+      font-size: 18px; cursor: pointer; padding: 4px 6px;
+      opacity: 0.85; transition: opacity 0.2s, transform 0.15s;
+      line-height: 1; flex-shrink: 0;
+    }
+    .ctrl-btn:hover { opacity: 1; transform: scale(1.1); }
+    .ctrl-btn.active { color: var(--accent); }
+    .volume-wrap { display: flex; align-items: center; gap: 8px; }
+    .volume-slider {
+      -webkit-appearance: none; appearance: none; width: 70px; height: 3px;
+      background: rgba(255,255,255,0.25); border-radius: 2px; cursor: pointer;
+      outline: none;
+    }
+    .volume-slider::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 10px; height: 10px;
+      background: #fff; border-radius: 50%;
+    }
+    .time-display {
+      font-family: var(--font-mono); font-size: 12px;
+      color: rgba(255,255,255,0.7); white-space: nowrap;
+      letter-spacing: 0.5px;
+    }
+    .controls-right { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+    .quality-badge {
+      font-family: var(--font-mono); font-size: 10px;
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 2px 6px; border-radius: 3px; color: rgba(255,255,255,0.6);
+    }
+
+    /* ─── PLAY OVERLAY (big center button) ────────────────────── */
+    .play-overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; z-index: 22;
+      transition: opacity 0.3s;
+    }
+    .play-overlay.show { opacity: 1; }
+    .play-overlay-inner {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(8px);
+      border: 2px solid rgba(255,255,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px;
+      animation: pop-in 0.25s ease;
+    }
+    @keyframes pop-in {
+      from { transform: scale(0.7); opacity: 0.5; }
+      to   { transform: scale(1);   opacity: 1; }
+    }
+
+    /* ─── TOP BAR (inside player) ──────────────────────────────── */
+    .player-topbar {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 16px 20px;
+      background: linear-gradient(rgba(0,0,0,0.7), transparent);
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 25;
+      transition: opacity 0.3s;
+    }
+    .player-wrapper.hide-controls .player-topbar { opacity: 0; pointer-events: none; }
+    .player-title { font-size: 14px; font-weight: 500; opacity: 0.9; }
+    .player-episode { font-size: 12px; color: var(--accent); font-weight: 600; letter-spacing: 0.5px; }
+
+    /* ─── GESTURE HINT OVERLAY ─────────────────────────────────── */
+    .gesture-hint {
+      position: absolute; bottom: 72px; left: 50%;
+      transform: translateX(-50%);
+      display: flex; gap: 24px; align-items: center;
+      background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 100px; padding: 8px 20px;
+      font-size: 11px; color: rgba(255,255,255,0.55);
+      z-index: 26; pointer-events: none;
+      opacity: 1; transition: opacity 1s 4s;
+    }
+    .gesture-hint.hide { opacity: 0; }
+    .gh-item { display: flex; align-items: center; gap: 6px; }
+    .gh-dot { width: 4px; height: 4px; background: var(--muted); border-radius: 50%; }
+
+    /* ─── VIDEO INFO ───────────────────────────────────────────── */
+    .video-info { margin-top: 22px; }
+    .video-meta { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .tag {
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      padding: 3px 10px; border-radius: 4px;
+      background: rgba(232,160,32,0.15); color: var(--accent);
+      text-transform: uppercase;
+    }
+    .meta-dot { color: var(--muted); font-size: 10px; }
+    .meta-text { font-size: 13px; color: var(--muted); }
+    .video-title {
+      font-family: var(--font-head);
+      font-size: 30px; letter-spacing: 1.5px;
+      line-height: 1; margin-bottom: 10px;
+    }
+    .video-desc { font-size: 14px; color: var(--muted); line-height: 1.7; max-width: 680px; }
+
+    /* Actions row */
+    .actions-row { display: flex; gap: 12px; align-items: center; margin-top: 20px; }
+    .btn-action {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 22px; border-radius: 8px;
+      font-family: var(--font-body); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; border: none;
+    }
+    .btn-watch {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #000;
+    }
+    .btn-watch:hover { opacity: 0.88; transform: translateY(-1px); }
+    .btn-outline {
+      background: rgba(255,255,255,0.08); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-outline:hover { background: rgba(255,255,255,0.13); border-color: rgba(255,255,255,0.2); }
+
+    /* Stat pills */
+    .stats-row { display: flex; gap: 20px; margin-top: 20px; }
+    .stat-pill {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--muted);
+    }
+    .stat-pill span:first-child { font-size: 16px; }
+    .stat-pill strong { color: var(--text); font-weight: 500; }
+
+    /* ─── PLAYLIST ─────────────────────────────────────────────── */
+    .playlist-section { margin-top: 36px; }
+    .section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 18px;
+    }
+    .section-title {
+      font-family: var(--font-head); font-size: 22px; letter-spacing: 1px;
+    }
+    .see-all { font-size: 13px; color: var(--accent); cursor: pointer; text-decoration: none; }
+    .playlist-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+    }
+    .playlist-card {
+      border-radius: var(--radius-sm); overflow: hidden;
+      background: var(--card); border: 1px solid var(--border);
+      cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+    .playlist-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+    .playlist-card.active { border-color: var(--accent); }
+    .card-thumb {
+      aspect-ratio: 16/9; background: var(--surface);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 32px; position: relative; overflow: hidden;
+    }
+    .card-thumb .thumb-overlay {
+      position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent, rgba(0,0,0,0.4));
+    }
+    .card-duration {
+      position: absolute; bottom: 6px; right: 8px;
+      background: rgba(0,0,0,0.75); font-family: var(--font-mono);
+      font-size: 10px; padding: 2px 6px; border-radius: 3px; color: #fff;
+    }
+    .card-now { position: absolute; top: 8px; left: 8px;
+      background: var(--accent); color: #000;
+      font-size: 9px; font-weight: 700; letter-spacing: 1px;
+      padding: 2px 7px; border-radius: 3px; text-transform: uppercase;
+    }
+    .card-body { padding: 12px; }
+    .card-ep { font-size: 10px; color: var(--accent); font-weight: 700;
+      letter-spacing: 0.8px; text-transform: uppercase; margin-bottom: 4px;
+    }
+    .card-title { font-size: 13px; font-weight: 500; line-height: 1.4; }
+    .card-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    /* ─── COMMENT PANEL ────────────────────────────────────────── */
+    .comment-panel {
+      width: 360px; flex-shrink: 0;
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      overflow: hidden;
+      position: relative;
+    }
+    .comment-panel.open { transform: translateX(0); }
+
+    .cp-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .cp-title { font-family: var(--font-head); font-size: 20px; letter-spacing: 1px; }
+    .cp-count { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .cp-close {
+      background: none; border: none; color: var(--muted);
+      font-size: 20px; cursor: pointer; transition: color 0.2s;
+      padding: 4px;
+    }
+    .cp-close:hover { color: var(--text); }
+
+    .cp-body { flex: 1; overflow-y: auto; padding: 16px 24px; }
+    .cp-body::-webkit-scrollbar { width: 4px; }
+    .cp-body::-webkit-scrollbar-track { background: transparent; }
+    .cp-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .comment {
+      display: flex; gap: 12px; margin-bottom: 20px;
+      animation: comment-in 0.3s ease;
+    }
+    @keyframes comment-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .comment-av {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700;
+    }
+    .comment-content { flex: 1; }
+    .comment-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+    .comment-time { font-size: 11px; color: var(--muted); margin-left: 8px; font-weight: 400; }
+    .comment-text { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.6; }
+    .comment-actions { display: flex; gap: 14px; margin-top: 8px; }
+    .comment-act-btn {
+      display: flex; align-items: center; gap: 4px;
+      background: none; border: none; color: var(--muted);
+      font-size: 11px; cursor: pointer; font-family: var(--font-body);
+      transition: color 0.2s; padding: 0;
+    }
+    .comment-act-btn:hover { color: var(--text); }
+    .comment-act-btn.liked { color: var(--accent); }
+
+    .cp-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .cp-input-wrap {
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    .cp-input {
+      flex: 1; background: var(--card); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px;
+      color: var(--text); font-family: var(--font-body); font-size: 13px;
+      resize: none; outline: none; line-height: 1.5;
+      transition: border-color 0.2s;
+      min-height: 40px; max-height: 100px;
+    }
+    .cp-input:focus { border-color: var(--accent); }
+    .cp-input::placeholder { color: var(--muted); }
+    .cp-send {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 8px; padding: 10px 14px;
+      color: #000; font-size: 16px; cursor: pointer; flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .cp-send:hover { opacity: 0.85; }
+
+    /* ─── LOADING SCREEN ───────────────────────────────────────── */
+    #loading-screen {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 999; gap: 24px;
+      transition: opacity 0.5s, transform 0.5s;
+    }
+    #loading-screen.fade-out { opacity: 0; pointer-events: none; }
+    .loader-logo {
+      font-family: var(--font-head); font-size: 48px; letter-spacing: 6px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .loader-bar {
+      width: 200px; height: 2px; background: rgba(255,255,255,0.1);
+      border-radius: 1px; overflow: hidden;
+    }
+    .loader-fill {
+      height: 100%; width: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 1px; animation: load-fill 1.8s ease forwards;
+    }
+    @keyframes load-fill { to { width: 100%; } }
+    .loader-text { font-size: 12px; color: var(--muted); letter-spacing: 2px; }
+
+    /* ─── NOTIFICATION TOAST ───────────────────────────────────── */
+    .toast-container {
+      position: fixed; top: 80px; right: 24px;
+      z-index: 200; display: flex; flex-direction: column; gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 10px; padding: 12px 18px;
+      display: flex; align-items: center; gap: 12px;
+      min-width: 240px; backdrop-filter: blur(16px);
+      animation: toast-in 0.3s ease;
+      pointer-events: all;
+    }
+    .toast.danger { border-left-color: var(--danger); }
+    .toast.success { border-left-color: var(--success); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes toast-out {
+      to { opacity: 0; transform: translateX(20px); }
+    }
+    .toast.removing { animation: toast-out 0.3s ease forwards; }
+    .toast-icon { font-size: 20px; }
+    .toast-msg { font-size: 13px; font-weight: 500; }
+    .toast-sub { font-size: 11px; color: var(--muted); }
+
+    /* ─── CLOSE OVERLAY ────────────────────────────────────────── */
+    .close-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0); z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 24px;
+      pointer-events: none;
+      transition: background 0.4s;
+    }
+    .close-overlay.show {
+      pointer-events: all;
+      background: rgba(0,0,0,0.92);
+    }
+    .close-dialog {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px;
+      text-align: center; max-width: 360px;
+      transform: scale(0.85); opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s;
+    }
+    .close-overlay.show .close-dialog { transform: scale(1); opacity: 1; }
+    .close-dialog-icon { font-size: 48px; margin-bottom: 16px; }
+    .close-dialog-title {
+      font-family: var(--font-head); font-size: 28px;
+      letter-spacing: 1px; margin-bottom: 10px;
+    }
+    .close-dialog-sub { font-size: 14px; color: var(--muted); line-height: 1.6; }
+    .close-dialog-btns { display: flex; gap: 12px; margin-top: 28px; justify-content: center; }
+    .close-btn-cancel, .close-btn-confirm {
+      padding: 10px 28px; border-radius: 8px;
+      font-family: var(--font-body); font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .close-btn-cancel {
+      background: rgba(255,255,255,0.08); color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .close-btn-cancel:hover { background: rgba(255,255,255,0.14); }
+    .close-btn-confirm {
+      background: var(--danger); color: #fff; border: none;
+    }
+    .close-btn-confirm:hover { opacity: 0.88; }
+
+    /* ─── COUNTDOWN RING ───────────────────────────────────────── */
+    .countdown-ring {
+      position: absolute; bottom: 72px; right: 24px;
+      display: none; align-items: center; gap: 12px;
+      background: rgba(0,0,0,0.75); backdrop-filter: blur(10px);
+      border: 1px solid var(--border); border-radius: 14px;
+      padding: 12px 18px; font-size: 13px; font-weight: 500;
+      z-index: 26;
+    }
+    .countdown-ring.show { display: flex; }
+    .ring-svg { transform: rotate(-90deg); }
+    circle { fill: none; stroke: var(--accent); stroke-width: 3; stroke-dasharray: 63; }
+
+    /* ─── RESPONSIVE ───────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .navbar { padding: 14px 20px; }
+      .nav-links { display: none; }
+      .video-section { padding: 20px; }
+      .comment-panel { width: 100%; position: fixed; inset: 0; top: auto; height: 70vh;
+        border-radius: 20px 20px 0 0; border: 1px solid var(--border);
+        transform: translateY(100%); }
+      .comment-panel.open { transform: translateY(0); }
+      .playlist-grid { grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); }
+    }
+
+    @media (max-width: 600px) {
+      .video-title { font-size: 22px; }
+      .actions-row { flex-wrap: wrap; }
+      .stats-row { flex-wrap: wrap; gap: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     LOADING SCREEN
+═══════════════════════════════════════════════════════════════ -->
+<div id="loading-screen">
+  <div class="loader-logo">CINEWAVE</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+  <div class="loader-text">LOADING EXPERIENCE</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     TOAST CONTAINER
+═══════════════════════════════════════════════════════════════ -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     CLOSE CONFIRM DIALOG
+═══════════════════════════════════════════════════════════════ -->
+<div class="close-overlay" id="closeOverlay">
+  <div class="close-dialog">
+    <div class="close-dialog-icon">👋</div>
+    <div class="close-dialog-title">LEAVING SO SOON?</div>
+    <div class="close-dialog-sub">Are you sure you want to close CineWave? Your progress will be saved.</div>
+    <div class="close-dialog-btns">
+      <button class="close-btn-cancel" onclick="cancelClose()">Stay</button>
+      <button class="close-btn-confirm" onclick="confirmClose()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     APP
+═══════════════════════════════════════════════════════════════ -->
+<div class="app">
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="logo">CINE<span>WAVE</span></div>
+    <div class="nav-links">
+      <a href="#" class="active">Home</a>
+      <a href="#">Discover</a>
+      <a href="#">Series</a>
+      <a href="#">Movies</a>
+      <a href="#">My List</a>
+    </div>
+    <div class="nav-right">
+      <button class="btn-nav" onclick="toggleComments()">💬 Comments</button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- VIDEO SECTION -->
+    <div class="video-section">
+
+      <!-- ═══ PLAYER ═══ -->
+      <div class="player-wrapper" id="playerWrapper">
+
+        <!-- Actual Video Element -->
+        <video id="mainVideo" preload="metadata" playsinline>
+          <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4">
+        </video>
+
+        <!-- Top bar inside player -->
+        <div class="player-topbar">
+          <div>
+            <div class="player-episode" id="playerEp">EP 01 · SEASON 1</div>
+            <div class="player-title" id="playerTitleBar">Big Buck Bunny</div>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="font-size:12px;color:rgba(255,255,255,0.4);font-family:var(--font-mono);">GESTURE CONTROLS ON</span>
+          </div>
+        </div>
+
+        <!-- Buffering spinner -->
+        <div id="bufferingSpinner" style="display:none;position:absolute;inset:0;
+          align-items:center;justify-content:center;z-index:28;
+          background:rgba(0,0,0,0.3);">
+          <div style="width:44px;height:44px;border:3px solid rgba(255,255,255,0.15);
+            border-top-color:var(--accent);border-radius:50%;
+            animation:spin 0.8s linear infinite;"></div>
+        </div>
+        <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+        <!-- Play/Pause center overlay -->
+        <div class="play-overlay" id="playOverlay">
+          <div class="play-overlay-inner" id="playOverlayIcon">▶</div>
+        </div>
+
+        <!-- Left side indicator (rewind) -->
+        <div class="side-indicator left" id="rewindIndicator">
+          <div class="si-icon">⏪</div>
+          <div class="si-sec">-10s</div>
+          <div class="si-text">Double tap</div>
+        </div>
+
+        <!-- Right side indicator (forward) -->
+        <div class="side-indicator right" id="forwardIndicator">
+          <div class="si-icon">⏩</div>
+          <div class="si-sec">+10s</div>
+          <div class="si-text">Double tap</div>
+        </div>
+
+        <!-- Center gesture indicator (pause/next) -->
+        <div class="gesture-indicator" id="gestureIndicator">
+          <div class="gi-icon" id="giIcon">⏸</div>
+          <div class="gi-value" id="giValue">PAUSED</div>
+          <div class="gi-label" id="giLabel">Tap center to resume</div>
+        </div>
+
+        <!-- Ripple container -->
+        <div class="ripple-container" id="rippleContainer"></div>
+
+        <!-- Gesture zones overlay -->
+        <div class="gesture-overlay" id="gestureOverlay">
+          <div class="zone" id="zoneLeft"   data-zone="left"></div>
+          <div class="zone" id="zoneCenter" data-zone="center"></div>
+          <div class="zone" id="zoneRight"  data-zone="right"></div>
+        </div>
+
+        <!-- Gesture hint -->
+        <div class="gesture-hint" id="gestureHint">
+          <div class="gh-item">👈👈 <span>Rewind</span></div>
+          <div class="gh-dot"></div>
+          <div class="gh-item">☝ <span>Play/Pause</span></div>
+          <div class="gh-dot"></div>
+          <div class="gh-item">👉👉 <span>Forward</span></div>
+        </div>
+
+        <!-- Next video countdown -->
+        <div class="countdown-ring" id="countdownRing">
+          <svg class="ring-svg" width="24" height="24" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" id="countdownCircle"
+              stroke-dashoffset="63" />
+          </svg>
+          <span>Next video in <strong id="countdownSec">5</strong>s</span>
+          <button onclick="cancelCountdown()"
+            style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;">✕</button>
+        </div>
+
+        <!-- Controls bar -->
+        <div class="controls-bar" id="controlsBar">
+          <!-- Progress -->
+          <div class="progress-wrap" id="progressWrap">
+            <div class="progress-buffered" id="progressBuffered" style="width:0%"></div>
+            <div class="progress-fill" id="progressFill" style="width:0%">
+              <div class="progress-thumb"></div>
+            </div>
+          </div>
+          <!-- Row -->
+          <div class="controls-row">
+            <button class="ctrl-btn" id="playPauseBtn" onclick="togglePlay()">▶</button>
+            <button class="ctrl-btn" onclick="skip(-10)" title="Rewind 10s">⏮ 10</button>
+            <button class="ctrl-btn" onclick="skip(10)"  title="Forward 10s">10 ⏭</button>
+            <div class="volume-wrap">
+              <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">🔊</button>
+              <input type="range" class="volume-slider" id="volumeSlider"
+                min="0" max="1" step="0.05" value="1"
+                oninput="setVolume(this.value)">
+            </div>
+            <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+            <div class="controls-right">
+              <span class="quality-badge">HD</span>
+              <button class="ctrl-btn" onclick="toggleComments()" title="Comments">💬</button>
+              <button class="ctrl-btn" onclick="toggleFullscreen()" id="fsBtn">⛶</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END PLAYER -->
+
+      <!-- VIDEO INFO -->
+      <div class="video-info">
+        <div class="video-meta">
+          <span class="tag" id="videoTag">Drama</span>
+          <span class="meta-dot">•</span>
+          <span class="meta-text" id="videoYear">2024</span>
+          <span class="meta-dot">•</span>
+          <span class="meta-text" id="videoDuration">9 min</span>
+          <span class="meta-dot">•</span>
+          <span class="meta-text">⭐ 4.8</span>
+        </div>
+        <div class="video-title" id="videoTitle">BIG BUCK BUNNY</div>
+        <div class="video-desc" id="videoDesc">
+          A large and lovable rabbit deals with three tiny bullying rodents. Featuring beautiful animation and an emotional storyline of courage and resilience.
+        </div>
+        <div class="actions-row">
+          <button class="btn-action btn-watch" onclick="togglePlay()">▶ &nbsp;Play Now</button>
+          <button class="btn-action btn-outline" onclick="toggleComments()">💬 &nbsp;Comments</button>
+          <button class="btn-action btn-outline" onclick="showToast('Added to your list!','❤️')">+ &nbsp;My List</button>
+          <button class="btn-action btn-outline" onclick="showToast('Link copied!','🔗')">↗ &nbsp;Share</button>
+        </div>
+        <div class="stats-row">
+          <div class="stat-pill"><span>👁</span><strong>2.4M</strong> Views</div>
+          <div class="stat-pill"><span>👍</span><strong>98K</strong> Likes</div>
+          <div class="stat-pill"><span>💬</span><strong>4.2K</strong> Comments</div>
+          <div class="stat-pill"><span>📅</span><strong>2024</strong></div>
+        </div>
+      </div>
+
+      <!-- PLAYLIST -->
+      <div class="playlist-section">
+        <div class="section-header">
+          <div class="section-title">UP NEXT</div>
+          <a class="see-all" href="#">See All →</a>
+        </div>
+        <div class="playlist-grid" id="playlistGrid"></div>
+      </div>
+
+    </div><!-- end .video-section -->
+
+    <!-- COMMENT PANEL -->
+    <aside class="comment-panel" id="commentPanel">
+      <div class="cp-header">
+        <div>
+          <div class="cp-title">COMMENTS</div>
+          <div class="cp-count" id="commentCount">4,218 comments</div>
+        </div>
+        <button class="cp-close" onclick="toggleComments()">✕</button>
+      </div>
+      <div class="cp-body" id="commentBody"></div>
+      <div class="cp-footer">
+        <div class="cp-input-wrap">
+          <textarea class="cp-input" id="commentInput"
+            placeholder="Share your thoughts…" rows="1"
+            oninput="autoResize(this)"
+            onkeydown="handleCommentKey(event)"></textarea>
+          <button class="cp-send" onclick="postComment()">➤</button>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- end .main -->
+</div><!-- end .app -->
+
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════
+   CINEWAVE – GESTURE VIDEO PLAYER
+   Full gesture control implementation
+═══════════════════════════════════════════════════════════════════ */
+
+// ─── DATA ──────────────────────────────────────────────────────────
+const videos = [
+  {
+    title: 'Big Buck Bunny',
+    tag: 'Animation', year: '2024', ep: 'EP 01 · SEASON 1', duration: '9 min',
+    emoji: '🐰',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+    desc: 'A large and lovable rabbit deals with three tiny bullying rodents. Courage, friendship, and animation magic.'
+  },
+  {
+    title: 'Elephant Dream',
+    tag: 'Sci-Fi', year: '2024', ep: 'EP 02 · SEASON 1', duration: '10 min',
+    emoji: '🐘',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+    desc: 'Two strange characters explore an even stranger world, discovering the limits of their existence.'
+  },
+  {
+    title: 'For Bigger Blazes',
+    tag: 'Action', year: '2023', ep: 'EP 03 · SEASON 1', duration: '15 sec',
+    emoji: '🔥',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+    desc: 'An explosive action sequence that will leave you breathless with stunning cinematography.'
+  },
+  {
+    title: 'Subaru Outback',
+    tag: 'Adventure', year: '2023', ep: 'EP 04 · SEASON 1', duration: '15 sec',
+    emoji: '🚗',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
+    desc: 'Race through mountain roads and untamed wilderness in this breathtaking automotive adventure.'
+  },
+  {
+    title: 'We Are Going On Bullrun',
+    tag: 'Thriller', year: '2024', ep: 'EP 05 · SEASON 1', duration: '15 sec',
+    emoji: '🏁',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4',
+    desc: 'Join the most daring road rally on the planet — where speed meets adrenaline.'
+  },
+  {
+    title: 'Volkswagen GTI',
+    tag: 'Sports', year: '2023', ep: 'EP 06 · SEASON 1', duration: '15 sec',
+    emoji: '🏎',
+    src: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4',
+    desc: 'Pure driving perfection reviewed — the iconic GTI put to the ultimate test.'
+  }
+];
+
+const comments = [
+  { name: 'Alex Rivera',   av: '#e8a020', init: 'AR', time: '2h ago', text: 'The gesture controls are absolutely incredible! Double-tapping to skip is so smooth 👏', likes: 142 },
+  { name: 'Sara Kim',      av: '#2ae09a', init: 'SK', time: '3h ago', text: 'This is the most immersive video player I\'ve ever used. The animations when you tap are chef\'s kiss 🤌', likes: 89 },
+  { name: 'Marcus Chen',   av: '#e05c2a', init: 'MC', time: '5h ago', text: 'Love how triple-tap opens the comments. Found it by accident and now I can\'t stop using it!', likes: 234 },
+  { name: 'Priya Patel',   av: '#6c5ce7', init: 'PP', time: '6h ago', text: 'The visual feedback ripples are so satisfying. Every tap feels intentional and responsive.', likes: 67 },
+  { name: 'Jordan Blake',  av: '#00b4d8', init: 'JB', time: '8h ago', text: 'Finally a player that understands mobile-first design. The triple tap to close is genius.', likes: 178 },
+  { name: 'Nina Russo',    av: '#f72585', init: 'NR', time: '12h ago', text: 'Literally showed this to my whole team. The gesture UX is next level 🔥', likes: 312 },
+  { name: 'Liam Foster',   av: '#4cc9f0', init: 'LF', time: '1d ago',  text: 'The countdown timer before skipping to the next video is such a nice touch. Love the ring animation.', likes: 55 },
+  { name: 'Emma Walsh',    av: '#7209b7', init: 'EW', time: '1d ago',  text: 'The dark aesthetic perfectly matches the content. Every detail feels considered and intentional.', likes: 201 },
+];
+
+// ─── STATE ─────────────────────────────────────────────────────────
+let currentVideoIndex = 0;
+let controlsTimer = null;
+let countdownInterval = null;
+let countdownSec = 5;
+let isCommentOpen = false;
+let commentsList = [...comments];
+
+// Tap tracking per zone
+const tapTracker = {
+  left:   { count: 0, timer: null },
+  center: { count: 0, timer: null },
+  right:  { count: 0, timer: null }
+};
+
+// ─── ELEMENTS ──────────────────────────────────────────────────────
+const video          = document.getElementById('mainVideo');
+const playerWrapper  = document.getElementById('playerWrapper');
+const progressFill   = document.getElementById('progressFill');
+const progressBuf    = document.getElementById('progressBuffered');
+const progressWrap   = document.getElementById('progressWrap');
+const timeDisplay    = document.getElementById('timeDisplay');
+const playPauseBtn   = document.getElementById('playPauseBtn');
+const muteBtn        = document.getElementById('muteBtn');
+const volumeSlider   = document.getElementById('volumeSlider');
+const gestureOverlay = document.getElementById('gestureOverlay');
+const gestureHint    = document.getElementById('gestureHint');
+const rippleCont     = document.getElementById('rippleContainer');
+const gestureInd     = document.getElementById('gestureIndicator');
+const rewindInd      = document.getElementById('rewindIndicator');
+const forwardInd     = document.getElementById('forwardIndicator');
+const playOverlay    = document.getElementById('playOverlay');
+const playOverlayIco = document.getElementById('playOverlayIcon');
+const commentPanel   = document.getElementById('commentPanel');
+const commentBody    = document.getElementById('commentBody');
+const closeOverlay   = document.getElementById('closeOverlay');
+const countdownRing  = document.getElementById('countdownRing');
+const countdownSecEl = document.getElementById('countdownSec');
+const countdownCirc  = document.getElementById('countdownCircle');
+const bufferSpinner  = document.getElementById('bufferingSpinner');
+
+// ─── INIT ───────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    document.getElementById('loading-screen').classList.add('fade-out');
+    setTimeout(() => document.getElementById('loading-screen').remove(), 600);
+  }, 2000);
+
+  buildPlaylist();
+  renderComments();
+
+  // Hide gesture hint after 6s
+  setTimeout(() => gestureHint.classList.add('hide'), 6000);
+});
+
+// ─── VIDEO EVENTS ───────────────────────────────────────────────────
+video.addEventListener('timeupdate', updateProgress);
+video.addEventListener('progress',   updateBuffer);
+video.addEventListener('play',    () => { playPauseBtn.textContent = '⏸'; resetControlsTimer(); });
+video.addEventListener('pause',   () => { playPauseBtn.textContent = '▶'; showControls(); });
+video.addEventListener('ended',   () => startNextVideoCountdown());
+video.addEventListener('waiting', () => { bufferSpinner.style.display = 'flex'; });
+video.addEventListener('playing', () => { bufferSpinner.style.display = 'none'; });
+video.addEventListener('loadedmetadata', () => updateProgress());
+
+video.addEventListener('click', (e) => e.stopPropagation());
+
+// ─── CONTROLS AUTO-HIDE ─────────────────────────────────────────────
+function showControls() {
+  playerWrapper.classList.remove('hide-controls');
+  clearTimeout(controlsTimer);
+}
+function hideControls() {
+  if (!video.paused) playerWrapper.classList.add('hide-controls');
+}
+function resetControlsTimer() {
+  showControls();
+  clearTimeout(controlsTimer);
+  controlsTimer = setTimeout(hideControls, 3000);
+}
+
+playerWrapper.addEventListener('mousemove', resetControlsTimer);
+playerWrapper.addEventListener('mouseenter', showControls);
+playerWrapper.addEventListener('mouseleave', () => {
+  if (!video.paused) setTimeout(hideControls, 1500);
+});
+
+// ─── PROGRESS ──────────────────────────────────────────────────────
+function updateProgress() {
+  if (!video.duration) return;
+  const pct = (video.currentTime / video.duration) * 100;
+  progressFill.style.width = pct + '%';
+  timeDisplay.textContent  = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
+}
+function updateBuffer() {
+  if (!video.duration || !video.buffered.length) return;
+  const end = video.buffered.end(video.buffered.length - 1);
+  progressBuf.style.width = (end / video.duration * 100) + '%';
+}
+function fmtTime(s) {
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+// Seek by clicking progress bar
+progressWrap.addEventListener('click', (e) => {
+  const rect = progressWrap.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  video.currentTime = ratio * video.duration;
+});
+
+// ─── PLAY / PAUSE ──────────────────────────────────────────────────
+function togglePlay() {
+  if (video.paused) { video.play(); }
+  else              { video.pause(); }
+}
+
+// ─── SKIP ──────────────────────────────────────────────────────────
+function skip(sec) {
+  video.currentTime = Math.max(0, Math.min(video.duration || 0, video.currentTime + sec));
+}
+
+// ─── VOLUME ────────────────────────────────────────────────────────
+function setVolume(v) {
+  video.volume = v;
+  muteBtn.textContent = v == 0 ? '🔇' : v < 0.5 ? '🔉' : '🔊';
+}
+function toggleMute() {
+  video.muted = !video.muted;
+  muteBtn.textContent = video.muted ? '🔇' : '🔊';
+}
+
+// ─── FULLSCREEN ────────────────────────────────────────────────────
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    playerWrapper.requestFullscreen && playerWrapper.requestFullscreen();
+    document.getElementById('fsBtn').textContent = '⛶';
+  } else {
+    document.exitFullscreen && document.exitFullscreen();
+    document.getElementById('fsBtn').textContent = '⛶';
+  }
+}
+
+// ─── LOAD VIDEO ────────────────────────────────────────────────────
+function loadVideo(index, autoplay = false) {
+  const v = videos[index];
+  currentVideoIndex = index;
+
+  video.src = v.src;
+  video.load();
+  if (autoplay) video.play().catch(() => {});
+
+  document.getElementById('videoTitle').textContent    = v.title.toUpperCase();
+  document.getElementById('videoTag').textContent      = v.tag;
+  document.getElementById('videoYear').textContent     = v.year;
+  document.getElementById('videoDuration').textContent = v.duration;
+  document.getElementById('videoDesc').textContent     = v.desc;
+  document.getElementById('playerTitleBar').textContent = v.title;
+  document.getElementById('playerEp').textContent       = v.ep;
+
+  // Update active card
+  document.querySelectorAll('.playlist-card').forEach((c, i) => {
+    c.classList.toggle('active', i === index);
+    const now = c.querySelector('.card-now');
+    if (now) now.style.display = i === index ? 'block' : 'none';
+  });
+}
+
+// ─── PLAYLIST ──────────────────────────────────────────────────────
+function buildPlaylist() {
+  const grid = document.getElementById('playlistGrid');
+  grid.innerHTML = '';
+  videos.forEach((v, i) => {
+    const card = document.createElement('div');
+    card.className = 'playlist-card' + (i === 0 ? ' active' : '');
+    card.innerHTML = `
+      <div class="card-thumb" style="background:linear-gradient(135deg,${thumbGrad(i)})">
+        <span>${v.emoji}</span>
+        <div class="thumb-overlay"></div>
+        <div class="card-duration">${v.duration}</div>
+        <div class="card-now" style="display:${i===0?'block':'none'}">NOW PLAYING</div>
+      </div>
+      <div class="card-body">
+        <div class="card-ep">${v.ep}</div>
+        <div class="card-title">${v.title}</div>
+        <div class="card-sub">${v.tag} · ${v.year}</div>
+      </div>
+    `;
+    card.addEventListener('click', () => {
+      cancelCountdown();
+      loadVideo(i, true);
+      showToast(`Now playing: ${v.title}`, v.emoji);
+    });
+    grid.appendChild(card);
+  });
+}
+
+function thumbGrad(i) {
+  const gs = [
+    '#1a1a2e,#16213e','#0f3460,#533483','#1b1b2f,#2d4059',
+    '#162447,#1f4068','#1b262c,#0a3d62','#2c3e50,#4a1942'
+  ];
+  return gs[i % gs.length];
+}
+
+// ─── NEXT VIDEO ────────────────────────────────────────────────────
+function nextVideo() {
+  const next = (currentVideoIndex + 1) % videos.length;
+  loadVideo(next, true);
+  showToast(`Skipped to: ${videos[next].title}`, '⏭');
+}
+
+function startNextVideoCountdown() {
+  countdownSec = 5;
+  countdownRing.classList.add('show');
+  countdownSecEl.textContent = countdownSec;
+
+  const totalDash = 63;
+  countdownCirc.style.strokeDashoffset = '0';
+
+  countdownInterval = setInterval(() => {
+    countdownSec--;
+    countdownSecEl.textContent = countdownSec;
+    const offset = totalDash - (totalDash * (5 - countdownSec) / 5);
+    countdownCirc.style.strokeDashoffset = offset;
+
+    if (countdownSec <= 0) {
+      cancelCountdown();
+      nextVideo();
+    }
+  }, 1000);
+}
+
+function cancelCountdown() {
+  clearInterval(countdownInterval);
+  countdownRing.classList.remove('show');
+}
+
+// ─── COMMENTS ──────────────────────────────────────────────────────
+function toggleComments() {
+  isCommentOpen = !isCommentOpen;
+  commentPanel.classList.toggle('open', isCommentOpen);
+  if (isCommentOpen) showToast('Comments opened', '💬', 'success');
+}
+
+function renderComments() {
+  commentBody.innerHTML = '';
+  commentsList.forEach(c => commentBody.appendChild(makeComment(c)));
+}
+
+function makeComment(c) {
+  const div = document.createElement('div');
+  div.className = 'comment';
+  div.innerHTML = `
+    <div class="comment-av" style="background:${c.av}">${c.init}</div>
+    <div class="comment-content">
+      <div class="comment-name">${c.name} <span class="comment-time">${c.time}</span></div>
+      <div class="comment-text">${c.text}</div>
+      <div class="comment-actions">
+        <button class="comment-act-btn" onclick="likeComment(this, ${c.likes})">
+          👍 <span>${c.likes}</span>
+        </button>
+        <button class="comment-act-btn">💬 Reply</button>
+        <button class="comment-act-btn">↗ Share</button>
+      </div>
+    </div>
+  `;
+  return div;
+}
+
+function likeComment(btn, base) {
+  btn.classList.toggle('liked');
+  const span = btn.querySelector('span');
+  span.textContent = btn.classList.contains('liked') ? base + 1 : base;
+}
+
+function postComment() {
+  const input = document.getElementById('commentInput');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  const newComment = {
+    name: 'You', av: '#e8a020', init: 'JD',
+    time: 'Just now', text: text, likes: 0
+  };
+  commentBody.prepend(makeComment(newComment));
+  input.value = '';
+  autoResize(input);
+
+  const cnt = document.getElementById('commentCount');
+  const num = parseInt(cnt.textContent.replace(/[^0-9]/g, '')) + 1;
+  cnt.textContent = num.toLocaleString() + ' comments';
+
+  showToast('Comment posted!', '✅', 'success');
+}
+
+function handleCommentKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment(); }
+}
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+// ─── CLOSE OVERLAY ─────────────────────────────────────────────────
+function showCloseDialog() {
+  video.pause();
+  closeOverlay.classList.add('show');
+}
+function cancelClose() {
+  closeOverlay.classList.remove('show');
+  video.play().catch(() => {});
+}
+function confirmClose() {
+  document.body.innerHTML = `
+    <div style="
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      height:100vh;background:#070709;color:#f0eff4;gap:20px;
+      font-family:'DM Sans',sans-serif;
+    ">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:48px;
+        background:linear-gradient(135deg,#e8a020,#e05c2a);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;">CINEWAVE</div>
+      <div style="font-size:16px;color:#6e6d7a;">Thanks for watching. See you soon 👋</div>
+      <button onclick="location.reload()" style="
+        margin-top:12px;padding:12px 32px;background:linear-gradient(135deg,#e8a020,#e05c2a);
+        border:none;border-radius:8px;color:#000;font-weight:700;font-size:14px;cursor:pointer;
+      ">Return Home</button>
+    </div>`;
+}
+
+// ─── TOAST ─────────────────────────────────────────────────────────
+function showToast(msg, icon = '✨', type = '') {
+  const tc = document.getElementById('toastContainer');
+  const t  = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<div class="toast-icon">${icon}</div><div class="toast-msg">${msg}</div>`;
+  tc.appendChild(t);
+  setTimeout(() => {
+    t.classList.add('removing');
+    setTimeout(() => t.remove(), 350);
+  }, 2500);
+}
+
+// ─── RIPPLE ────────────────────────────────────────────────────────
+function spawnRipple(x, y, color = 'rgba(255,255,255,0.25)') {
+  const r = document.createElement('div');
+  r.className = 'ripple';
+  const size = 140;
+  Object.assign(r.style, {
+    width: size + 'px', height: size + 'px',
+    left: x + 'px', top: y + 'px',
+    background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
+  });
+  rippleCont.appendChild(r);
+  setTimeout(() => r.remove(), 650);
+}
+
+// ─── SHOW/HIDE INDICATORS ──────────────────────────────────────────
+let giTimer, rwTimer, fwTimer;
+
+function showGestureIndicator(icon, value, label) {
+  gestureInd.querySelector('.gi-icon').textContent  = icon;
+  gestureInd.querySelector('.gi-value').textContent = value;
+  gestureInd.querySelector('.gi-label').textContent = label;
+  gestureInd.classList.add('show');
+  clearTimeout(giTimer);
+  giTimer = setTimeout(() => gestureInd.classList.remove('show'), 1200);
+}
+
+function showRewindIndicator() {
+  rewindInd.classList.add('show');
+  clearTimeout(rwTimer);
+  rwTimer = setTimeout(() => rewindInd.classList.remove('show'), 1000);
+}
+
+function showForwardIndicator() {
+  forwardInd.classList.add('show');
+  clearTimeout(fwTimer);
+  fwTimer = setTimeout(() => forwardInd.classList.remove('show'), 1000);
+}
+
+// ─── CORE GESTURE HANDLER ──────────────────────────────────────────
+function handleTap(zone, x, y) {
+  const tracker = tapTracker[zone];
+  tracker.count++;
+
+  clearTimeout(tracker.timer);
+  tracker.timer = setTimeout(() => {
+    const n = tracker.count;
+    tracker.count = 0;
+
+    if (zone === 'center') {
+      if (n === 1) {
+        // Single tap → play / pause
+        if (video.paused) {
+          video.play().catch(() => {});
+          showGestureIndicator('▶', 'PLAYING', 'Tap to pause');
+          playOverlayIco.textContent = '▶';
+        } else {
+          video.pause();
+          showGestureIndicator('⏸', 'PAUSED', 'Tap to resume');
+          playOverlayIco.textContent = '⏸';
+        }
+        playOverlay.classList.add('show');
+        setTimeout(() => playOverlay.classList.remove('show'), 700);
+        spawnRipple(x, y, 'rgba(255,255,255,0.2)');
+
+      } else if (n >= 3) {
+        // Triple tap center → next video
+        cancelCountdown();
+        nextVideo();
+        showGestureIndicator('⏭', 'NEXT VIDEO', 'Loading next…');
+        spawnRipple(x, y, 'rgba(232,160,32,0.4)');
+      }
+
+    } else if (zone === 'right') {
+      if (n === 2) {
+        // Double tap right → forward 10s
+        skip(10);
+        showForwardIndicator();
+        spawnRipple(x, y, 'rgba(232,160,32,0.35)');
+        resetControlsTimer();
+
+      } else if (n >= 3) {
+        // Triple tap right → close website
+        spawnRipple(x, y, 'rgba(224,60,90,0.4)');
+        showToast('Closing in 1 second…', '⚠️', 'danger');
+        setTimeout(() => showCloseDialog(), 800);
+      }
+
+    } else if (zone === 'left') {
+      if (n === 2) {
+        // Double tap left → rewind 10s
+        skip(-10);
+        showRewindIndicator();
+        spawnRipple(x, y, 'rgba(42,224,154,0.3)');
+        resetControlsTimer();
+
+      } else if (n >= 3) {
+        // Triple tap left → open comments
+        spawnRipple(x, y, 'rgba(100,200,255,0.35)');
+        if (!isCommentOpen) {
+          toggleComments();
+        } else {
+          showToast('Comments already open', '💬');
+        }
+      }
+    }
+  }, 280); // debounce window
+}
+
+// ─── TOUCH EVENTS (mobile) ─────────────────────────────────────────
+gestureOverlay.addEventListener('touchend', (e) => {
+  e.preventDefault();
+  const touch = e.changedTouches[0];
+  const rect  = gestureOverlay.getBoundingClientRect();
+  const relX  = touch.clientX - rect.left;
+  const relY  = touch.clientY - rect.top;
+  const zone  = e.target.dataset.zone;
+
+  if (zone) handleTap(zone, relX, relY);
+  resetControlsTimer();
+}, { passive: false });
+
+// ─── CLICK EVENTS (desktop) ────────────────────────────────────────
+gestureOverlay.addEventListener('click', (e) => {
+  const rect = gestureOverlay.getBoundingClientRect();
+  const relX = e.clientX - rect.left;
+  const relY = e.clientY - rect.top;
+  const zone = e.target.dataset.zone;
+
+  if (zone) handleTap(zone, relX, relY);
+  resetControlsTimer();
+});
+
+// ─── KEYBOARD SHORTCUTS ────────────────────────────────────────────
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT') return;
+  switch (e.code) {
+    case 'Space':      e.preventDefault(); togglePlay(); break;
+    case 'ArrowRight': skip(10);  showForwardIndicator(); break;
+    case 'ArrowLeft':  skip(-10); showRewindIndicator();  break;
+    case 'ArrowUp':    video.volume = Math.min(1, video.volume + 0.1); volumeSlider.value = video.volume; break;
+    case 'ArrowDown':  video.volume = Math.max(0, video.volume - 0.1); volumeSlider.value = video.volume; break;
+    case 'KeyM':       toggleMute();       break;
+    case 'KeyF':       toggleFullscreen(); break;
+    case 'KeyC':       toggleComments();   break;
+    case 'KeyN':       nextVideo();        break;
+  }
+});
+</script>
+</body>
+</html>
